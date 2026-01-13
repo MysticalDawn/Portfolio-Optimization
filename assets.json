@@ -1,0 +1,24 @@
+{
+  "assets": [
+    {
+      "Ticker": "NOVT",
+      "Description": "Novo Integrated Sciences"
+    },
+    {
+      "Ticker": "NVDA",
+      "Description": "NVIDIA Corporation"
+    },
+    {
+      "Ticker": "AMD",
+      "Description": "Advanced Micro Devices"
+    },
+    {
+      "Ticker": "RBRK",
+      "Description": "Rubrik Inc"
+    },
+    {
+      "Ticker": "EQIX",
+      "Description": "Equinix Inc"
+    }
+  ]
+}
