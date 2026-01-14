@@ -1,6 +1,6 @@
 # Portfolio Optimization CLI
 
-A command-line tool for portfolio optimization using Modern Portfolio Theory (Mean-Variance optimization / Markowitz model). Optimize your investment portfolio based on risk tolerance, analyze existing holdings, get rebalancing recommendations, and backtest strategies.
+Omar — this is the command-line tool we built for portfolio optimization using Modern Portfolio Theory (Mean-Variance optimization / Markowitz model). With it, we can optimize an investment portfolio based on risk tolerance, analyze existing holdings, generate rebalancing recommendations, and backtest strategies.
 
 ## Features
 
@@ -17,13 +17,13 @@ A command-line tool for portfolio optimization using Modern Portfolio Theory (Me
 pip install -r requirements.txt
 ```
 
-2. The tool is ready to use!
+2. That’s it — you’re ready to run it.
 
 ## Quick Start
 
 ### 1. Define Your Assets
 
-Create an `assets.json` file with your asset universe:
+Omar, start by creating an `assets.json` file with the asset universe you want to consider:
 
 ```json
 {
@@ -39,7 +39,7 @@ Create an `assets.json` file with your asset universe:
 
 ### 2. Optimize Portfolio
 
-Find the optimal allocation using maximum Sharpe ratio:
+Find the optimal allocation (default is maximum Sharpe ratio):
 
 ```bash
 python cli.py optimize --value 10000
@@ -53,7 +53,7 @@ python cli.py optimize --tickers AAPL,MSFT,GOOGL --value 10000 --strategy modera
 
 ### 3. Analyze Existing Portfolio
 
-Check metrics for your current holdings:
+Check metrics for an existing set of holdings:
 
 ```bash
 python cli.py analyze --holdings '{"AAPL": 10, "MSFT": 15, "GOOGL": 5}'
@@ -61,7 +61,7 @@ python cli.py analyze --holdings '{"AAPL": 10, "MSFT": 15, "GOOGL": 5}'
 
 ### 4. Get Rebalancing Recommendations
 
-Compare current vs optimal allocation:
+Compare current vs optimal allocation and get the suggested trades:
 
 ```bash
 python cli.py rebalance --current '{"AAPL": 10, "MSFT": 15}' --strategy max_sharpe
@@ -79,7 +79,7 @@ python cli.py backtest --period 5y --strategy max_sharpe
 
 ### `optimize`
 
-Optimize portfolio allocation from scratch.
+Omar, use this when you want to build an optimized portfolio allocation from scratch.
 
 **Options:**
 - `--file, -f`: Path to assets JSON file (default: assets.json)
@@ -108,7 +108,7 @@ python cli.py optimize --tickers AAPL,MSFT,GOOGL,NVDA --strategy moderate --valu
 
 ### `analyze`
 
-Analyze an existing portfolio's risk and return characteristics.
+Analyze an existing portfolio’s risk and return characteristics.
 
 **Options:**
 - `--holdings, -h`: Current holdings as JSON (required)
@@ -196,19 +196,19 @@ python cli.py compare --tickers AAPL,MSFT,GOOGL,NVDA,AMD
 ## Optimization Strategies Explained
 
 ### Max Sharpe Ratio
-Maximizes risk-adjusted returns (return per unit of risk). Best for investors seeking optimal balance between risk and return.
+Maximizes risk-adjusted returns (return per unit of risk). Omar, this is usually the best default when you want a strong risk/return tradeoff.
 
 ### Min Volatility
-Minimizes portfolio volatility. Best for conservative investors prioritizing capital preservation.
+Minimizes portfolio volatility. Great when you want a more conservative, capital-preservation tilt.
 
 ### Conservative (10% target volatility)
-Targets 10% annual volatility. Low-risk approach suitable for risk-averse investors.
+Targets 10% annual volatility. Low-risk approach suitable when you want to keep swings smaller.
 
 ### Moderate (15% target volatility)
-Targets 15% annual volatility. Balanced risk/return profile for average investors.
+Targets 15% annual volatility. Balanced risk/return profile.
 
 ### Aggressive (25% target volatility)
-Targets 25% annual volatility. Higher risk/return profile for risk-tolerant investors.
+Targets 25% annual volatility. Higher risk/return profile when you’re comfortable taking on more volatility.
 
 ## Technical Details
 
@@ -287,4 +287,4 @@ MIT License
 
 ## Contributing
 
-Contributions welcome! Please submit issues and pull requests.
+Omar (and anyone else reading), contributions are welcome — feel free to submit issues and pull requests.
