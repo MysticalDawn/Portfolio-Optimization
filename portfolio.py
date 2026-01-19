@@ -1,194 +1,177 @@
 """
-Portfolio class for managing holdings and performing analysis
+Simple Portfolio Optimization using Mean-Variance (Markowitz) Model
+
+This script demonstrates the basics of portfolio optimization:
+1. Fetch historical stock data
+2. Calculate expected returns and covariance
+3. Find optimal portfolio weights using different strategies
 """
-import pandas as pd
+
 import numpy as np
-from typing import Dict, Optional, List
-from utils.data_fetchers.market_data import MarketDataFetcher
+import pandas as pd
+import yfinance as yf
+from scipy.optimize import minimize
 
 
-class Portfolio:
-    """Represents an investment portfolio with holdings and provides analysis methods"""
+def fetch_stock_data(tickers: list[str], period: str = "2y") -> pd.DataFrame:
+    """
+    Fetch historical adjusted close prices for given tickers.
 
-    def __init__(self, holdings: Optional[Dict[str, float]] = None, cash: float = 0.0):
-        """
-        Initialize portfolio
+    Args:
+        tickers: List of stock symbols (e.g., ['AAPL', 'GOOGL', 'MSFT'])
+        period: Historical period ('1y', '2y', '5y', etc.)
 
-        Args:
-            holdings: Dictionary mapping ticker to quantity owned
-            cash: Cash balance in portfolio
-        """
-        self.holdings = holdings or {}
-        self.cash = cash
-        self._market_data = None
-        self._current_prices = None
+    Returns:
+        DataFrame with adjusted close prices
+    """
+    data = yf.download(tickers, period=period, auto_adjust=True)["Close"]
+    return data.dropna()
 
-    @classmethod
-    def from_weights(cls, tickers: List[str], weights: Dict[str, float], total_value: float):
-        """
-        Create portfolio from allocation weights
 
-        Args:
-            tickers: List of ticker symbols
-            weights: Dictionary mapping ticker to weight (should sum to 1)
-            total_value: Total portfolio value
+def calculate_returns(prices: pd.DataFrame) -> pd.DataFrame:
+    """Calculate daily returns from price data."""
+    return prices.pct_change().dropna()
 
-        Returns:
-            Portfolio instance
-        """
-        fetcher = MarketDataFetcher(tickers)
-        current_prices = fetcher.get_current_prices()
 
-        holdings = {}
-        for ticker in tickers:
-            if ticker in weights and ticker in current_prices:
-                dollar_amount = weights[ticker] * total_value
-                holdings[ticker] = dollar_amount / current_prices[ticker]
+def portfolio_performance(
+    weights: np.ndarray, mean_returns: np.ndarray, cov_matrix: np.ndarray
+) -> tuple[float, float]:
+    """
+    Calculate portfolio expected return and volatility.
 
-        return cls(holdings=holdings)
+    Args:
+        weights: Portfolio weights
+        mean_returns: Expected returns for each asset
+        cov_matrix: Covariance matrix of returns
 
-    def get_tickers(self) -> List[str]:
-        """Get list of tickers in portfolio"""
-        return list(self.holdings.keys())
+    Returns:
+        Tuple of (expected_return, volatility)
+    """
+    expected_return = np.dot(weights, mean_returns) * 252  # Annualized
+    volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix * 252, weights)))
+    return expected_return, volatility
 
-    def get_market_data(self, period: str = "2y") -> MarketDataFetcher:
-        """Get market data fetcher for portfolio tickers"""
-        if self._market_data is None:
-            self._market_data = MarketDataFetcher(self.get_tickers(), period=period)
-            self._market_data.fetch_prices()
-        return self._market_data
 
-    def get_current_prices(self) -> Dict[str, float]:
-        """Get current market prices for all holdings"""
-        if self._current_prices is None:
-            fetcher = MarketDataFetcher(self.get_tickers())
-            self._current_prices = fetcher.get_current_prices()
-        return self._current_prices
+def negative_sharpe_ratio(
+    weights: np.ndarray,
+    mean_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+    risk_free_rate: float = 0.02,
+) -> float:
+    """Calculate negative Sharpe ratio (for minimization)."""
+    ret, vol = portfolio_performance(weights, mean_returns, cov_matrix)
+    return -(ret - risk_free_rate) / vol
 
-    def get_position_values(self) -> Dict[str, float]:
-        """
-        Calculate current value of each position
 
-        Returns:
-            Dictionary mapping ticker to dollar value
-        """
-        prices = self.get_current_prices()
-        return {ticker: qty * prices[ticker] for ticker, qty in self.holdings.items()}
+def portfolio_volatility(
+    weights: np.ndarray, mean_returns: np.ndarray, cov_matrix: np.ndarray
+) -> float:
+    """Calculate portfolio volatility (for minimization)."""
+    _, vol = portfolio_performance(weights, mean_returns, cov_matrix)
+    return vol
 
-    def get_total_value(self) -> float:
-        """Calculate total portfolio value (holdings + cash)"""
-        position_values = self.get_position_values()
-        return sum(position_values.values()) + self.cash
 
-    def get_weights(self) -> Dict[str, float]:
-        """
-        Calculate current portfolio weights
+def optimize_portfolio(
+    mean_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+    objective: str = "max_sharpe",
+    risk_free_rate: float = 0.02,
+) -> np.ndarray:
+    """
+    Find optimal portfolio weights.
 
-        Returns:
-            Dictionary mapping ticker to weight (fraction of total value)
-        """
-        position_values = self.get_position_values()
-        total_value = self.get_total_value()
+    Args:
+        mean_returns: Expected returns for each asset
+        cov_matrix: Covariance matrix
+        objective: 'max_sharpe' or 'min_volatility'
+        risk_free_rate: Risk-free rate for Sharpe calculation
 
-        if total_value == 0:
-            return {ticker: 0.0 for ticker in self.holdings.keys()}
+    Returns:
+        Optimal portfolio weights
+    """
+    n_assets = len(mean_returns)
+    initial_weights = np.ones(n_assets) / n_assets
 
-        return {ticker: value / total_value for ticker, value in position_values.items()}
+    # Constraints: weights sum to 1
+    constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
 
-    def calculate_metrics(self, risk_free_rate: float = 0.02) -> Dict:
-        """
-        Calculate portfolio performance metrics
+    # Bounds: each weight between 0 and 1 (long-only)
+    bounds = tuple((0, 1) for _ in range(n_assets))
 
-        Args:
-            risk_free_rate: Annual risk-free rate for Sharpe ratio
+    if objective == "max_sharpe":
+        result = minimize(
+            negative_sharpe_ratio,
+            initial_weights,
+            args=(mean_returns, cov_matrix, risk_free_rate),
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+        )
+    else:  # min_volatility
+        result = minimize(
+            portfolio_volatility,
+            initial_weights,
+            args=(mean_returns, cov_matrix),
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+        )
 
-        Returns:
-            Dictionary of metrics (return, volatility, Sharpe ratio, etc.)
-        """
-        weights = self.get_weights()
-        market_data = self.get_market_data()
+    return result.x
 
-        # Get expected returns and covariance
-        expected_returns = market_data.get_expected_returns()
-        cov_matrix = market_data.get_covariance_matrix()
 
-        # Calculate portfolio return and volatility
-        weights_series = pd.Series(weights)
-        portfolio_return = (weights_series * expected_returns).sum()
-        portfolio_variance = np.dot(weights_series, np.dot(cov_matrix, weights_series))
-        portfolio_volatility = np.sqrt(portfolio_variance)
+def display_results(
+    tickers: list[str],
+    weights: np.ndarray,
+    mean_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+    risk_free_rate: float = 0.02,
+):
+    """Display optimization results."""
+    ret, vol = portfolio_performance(weights, mean_returns, cov_matrix)
+    sharpe = (ret - risk_free_rate) / vol
 
-        # Sharpe ratio
-        sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility if portfolio_volatility > 0 else 0
+    print("\n" + "=" * 50)
+    print("OPTIMAL PORTFOLIO ALLOCATION")
+    print("=" * 50)
 
-        return {
-            'expected_return': portfolio_return,
-            'volatility': portfolio_volatility,
-            'sharpe_ratio': sharpe_ratio,
-            'total_value': self.get_total_value()
-        }
+    for ticker, weight in zip(tickers, weights):
+        if weight > 0.001:  # Only show non-zero allocations
+            print(f"  {ticker:6s}: {weight*100:6.2f}%")
 
-    def calculate_historical_performance(self) -> Dict:
-        """
-        Calculate actual historical performance
+    print("-" * 50)
+    print(f"  Expected Return:  {ret*100:6.2f}%")
+    print(f"  Volatility:       {vol*100:6.2f}%")
+    print(f"  Sharpe Ratio:     {sharpe:6.2f}")
+    print("=" * 50)
 
-        Returns:
-            Dictionary with cumulative return, max drawdown, etc.
-        """
-        market_data = self.get_market_data()
-        returns = market_data.returns
-        weights = pd.Series(self.get_weights())
 
-        # Calculate portfolio returns
-        portfolio_returns = (returns * weights).sum(axis=1)
+# =============================================================================
+# MAIN EXAMPLE
+# =============================================================================
 
-        # Cumulative returns
-        cumulative_returns = (1 + portfolio_returns).cumprod()
-        total_return = cumulative_returns.iloc[-1] - 1
+if __name__ == "__main__":
+    # Define assets to optimize
+    tickers = ["AAPL", "GOOGL", "MSFT", "AMZN", "META"]
 
-        # Max drawdown
-        running_max = cumulative_returns.cummax()
-        drawdown = (cumulative_returns - running_max) / running_max
-        max_drawdown = drawdown.min()
+    print("Fetching stock data...")
+    prices = fetch_stock_data(tickers, period="2y")
 
-        # Annualized metrics
-        num_years = len(portfolio_returns) / 252
-        annualized_return = (1 + total_return) ** (1 / num_years) - 1
-        annualized_volatility = portfolio_returns.std() * np.sqrt(252)
+    # Calculate returns
+    returns = calculate_returns(prices)
+    mean_returns = returns.mean().values
+    cov_matrix = returns.cov().values
 
-        return {
-            'total_return': total_return,
-            'annualized_return': annualized_return,
-            'annualized_volatility': annualized_volatility,
-            'max_drawdown': max_drawdown,
-            'cumulative_returns': cumulative_returns
-        }
+    # Optimize for Maximum Sharpe Ratio
+    print("\n>>> Optimizing for Maximum Sharpe Ratio...")
+    weights_sharpe = optimize_portfolio(
+        mean_returns, cov_matrix, objective="max_sharpe"
+    )
+    display_results(tickers, weights_sharpe, mean_returns, cov_matrix)
 
-    def summary(self) -> pd.DataFrame:
-        """
-        Generate portfolio summary table
-
-        Returns:
-            DataFrame with ticker, quantity, price, value, weight
-        """
-        prices = self.get_current_prices()
-        position_values = self.get_position_values()
-        weights = self.get_weights()
-
-        data = []
-        for ticker in self.holdings.keys():
-            data.append({
-                'Ticker': ticker,
-                'Quantity': self.holdings[ticker],
-                'Price': prices[ticker],
-                'Value': position_values[ticker],
-                'Weight': weights[ticker]
-            })
-
-        df = pd.DataFrame(data)
-        df = df.sort_values('Value', ascending=False)
-
-        return df
-
-    def __repr__(self):
-        return f"Portfolio(holdings={len(self.holdings)}, total_value=${self.get_total_value():,.2f})"
+    # Optimize for Minimum Volatility
+    print("\n>>> Optimizing for Minimum Volatility...")
+    weights_min_vol = optimize_portfolio(
+        mean_returns, cov_matrix, objective="min_volatility"
+    )
+    display_results(tickers, weights_min_vol, mean_returns, cov_matrix)
