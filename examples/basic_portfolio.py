@@ -1,13 +1,15 @@
 """
-Portfolio Optimization - Simple Boilerplate
-The starting point for the portfolio optimization project.
+Basic Portfolio Optimization Example
+
+A simple starting point demonstrating Mean-Variance portfolio optimization
+with a single stock. This serves as a minimal working example before
+scaling up to multiple assets and more sophisticated methods.
 """
 
 import numpy as np
-import pandas as pd
 import yfinance as yf
 
-# 1. Get stock data
+# 1. Fetch stock data
 tickers = ["AAPL"]
 prices = yf.download(tickers, period="1y", auto_adjust=True)["Close"]
 print(prices)
@@ -15,8 +17,9 @@ print(prices)
 # 2. Calculate daily returns
 returns = prices.pct_change().dropna()
 print(returns)
+
 # 3. Calculate expected return and risk for each stock
-expected_returns = returns.mean() * 252  # Annualized
+expected_returns = returns.mean() * 252  # Annualized (252 trading days)
 cov_matrix = returns.cov() * 252  # Annualized
 
 print("Expected Annual Returns:")

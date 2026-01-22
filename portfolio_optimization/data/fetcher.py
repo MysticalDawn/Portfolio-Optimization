@@ -1,9 +1,14 @@
-import yfinance as yf
-import pandas as pd
-from pathlib import Path
-from datetime import datetime, timedelta
+"""Ticker data fetching with caching support."""
 
-CACHE_DIR = Path(__file__).parent.parent / "cache"
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import pandas as pd
+import yfinance as yf
+
+
+# Cache directory at project root level
+CACHE_DIR = Path(__file__).resolve().parents[2] / "cache"
 
 
 def fetch_ticker_data(
@@ -15,6 +20,7 @@ def fetch_ticker_data(
 ) -> pd.DataFrame:
     """
     Fetch historical adjusted close prices for a given ticker.
+
     Uses local cache to avoid repeated API calls.
 
     Args:
@@ -22,6 +28,10 @@ def fetch_ticker_data(
         period: Data period (e.g., "5y", "1y")
         interval: Data interval (e.g., "1d", "1wk")
         max_age_days: Maximum age of cached data before refreshing
+        end: End date for data fetching
+
+    Returns:
+        DataFrame with historical price data
     """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cache_file = CACHE_DIR / f"{ticker}_{period}_{interval}.csv"
