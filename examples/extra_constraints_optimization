@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 
 # 1. Fetch stock data
 tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "JPM"]
-prices = yf.download(tickers, period="1y", auto_adjust=True)["Close"]
+prices = yf.download(tickers, period="15y", auto_adjust=True)["Close"]
 
 # 2. Calculate daily returns
 returns = prices.pct_change().dropna()
