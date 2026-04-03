@@ -1,0 +1,74 @@
+"""
+Markowitz Portfolio Optimization
+- Long-only constraint (weights >= 0)
+- Turnover constraint (sum of weight changes <= turnover_limit)
+"""
+
+import numpy as np
+import yfinance as yf
+from scipy.optimize import minimize
+
+# 1. Fetch stock data
+tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "JPM"]
+prices = yf.download(tickers, period="1y", auto_adjust=True)["Close"]
+
+# 2. Calculate daily returns
+returns = prices.pct_change().dropna()
+
+# 3. Expected return and covariance (annualized)
+expected_returns = returns.mean() * 252
+cov_matrix = returns.cov() * 252
+
+n = len(tickers)
+
+# 4. Previous weights (e.g. equal-weight as starting portfolio)
+prev_weights = np.ones(n) / n
+
+# ── Optimization ──────────────────────────────────────────────────────────────
+
+def portfolio_volatility(weights):
+    return np.sqrt(weights.T @ cov_matrix.values @ weights)
+
+# Target: maximize Sharpe ratio  →  minimize negative Sharpe
+def neg_sharpe(weights):
+    ret = weights @ expected_returns.values
+    vol = portfolio_volatility(weights)
+    return -ret / vol
+
+constraints = [
+    # Weights sum to 1
+    {"type": "eq", "fun": lambda w: np.sum(w) - 1},
+    # Turnover constraint: sum of absolute weight changes <= limit
+    {"type": "ineq", "fun": lambda w: (1 / turnover_trades) - np.sum(np.abs(w - prev_weights))},
+]
+
+bounds = [(0, 1)] * n          # Long-only: each weight in [0, 1]
+turnover_trades = 52           # This is the number of trades in a year (e.g. turnover_trades = 52 means you hold the portoflio for a week) 
+x0 = prev_weights.copy()       # Start from current portfolio
+
+result = minimize(
+    neg_sharpe,
+    x0,
+    method="SLSQP",
+    bounds=bounds,
+    constraints=constraints,
+)
+
+# ── Results ───────────────────────────────────────────────────────────────────
+
+opt_weights = result.x
+opt_return  = opt_weights @ expected_returns.values
+opt_vol     = portfolio_volatility(opt_weights)
+opt_sharpe  = opt_return / opt_vol
+turnover    = np.sum(np.abs(opt_weights - prev_weights))
+
+print("─" * 40)
+print(f"{'Asset':<8} {'Prev':>8} {'Optimal':>8} {'Change':>8}")
+print("─" * 40)
+for t, pw, ow in zip(tickers, prev_weights, opt_weights):
+    print(f"{t:<8} {pw:>8.1%} {ow:>8.1%} {ow - pw:>+8.1%}")
+print("─" * 40)
+print(f"\nExpected Return : {opt_return:.2%}")
+print(f"Volatility      : {opt_vol:.2%}")
+print(f"Sharpe Ratio    : {opt_sharpe:.2f}")
+print(f"Turnover        : {turnover:.2%}  (limit: {turnover_limit:.0%})")
